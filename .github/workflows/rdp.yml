@@ -1,34 +1,40 @@
-name: Cloud RDP Maker
+name: Powerful Linux RDP
 
 on:
-  workflow_dispatch: # Website theke manual trigger korar jonno
+  workflow_dispatch:
 
 jobs:
   build-rdp:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Maximum 6 hours limit
+    timeout-minutes: 360
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Desktop and VNC
+      - name: Setup System & Desktop Environment
         run: |
-          sudo apt update
-          sudo apt install -y tigervnc-standalone-server xfce4 xfce4-goodies
+          sudo apt update && sudo apt upgrade -y
+          sudo apt install -y tigervnc-standalone-server xfce4 xfce4-goodies curl wget
+          
           mkdir -p ~/.vnc
           echo "12345678" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
-          echo -e "#!/bin/bash\nstartxfce4 &" > ~/.vnc/xstartup
+          
+          echo -e "#!/bin/bash\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nstartxfce4 &" > ~/.vnc/xstartup
           chmod +x ~/.vnc/xstartup
+
+      - name: Start VNC Server
+        run: |
           vncserver :1 -geometry 1280x720 -depth 24
 
-      - name: Start Pinggy TCP Tunnel with Retry
+      - name: Start Stable Pinggy TCP Tunnel
         run: |
           echo "=========================================="
-          echo "GENERATING TCP TUNNEL FOR RVNC VIEWER..."
+          echo "RDP IS READY! COPY THE TCP LINK BELOW:"
           echo "=========================================="
           while true; do
-            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -p 443 -R 0:localhost:5901 tcp@a.pinggy.io || echo "Tunnel disconnected, reconnecting..."
-            sleep 5
+            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -p 443 -R 0:localhost:5901 tcp@a.pinggy.io || echo "Reconnecting tunnel..."
+            sleep 3
           done
           
