@@ -1,40 +1,55 @@
-name: Powerful Linux RDP
+name: Ubuntu True RDP
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-rdp:
+  rdp:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 350
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Setup System & Desktop Environment
-        run: |
-          sudo apt update && sudo apt upgrade -y
-          sudo apt install -y tigervnc-standalone-server xfce4 xfce4-goodies curl wget
-          
-          mkdir -p ~/.vnc
-          echo "12345678" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
-          
-          echo -e "#!/bin/bash\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nstartxfce4 &" > ~/.vnc/xstartup
-          chmod +x ~/.vnc/xstartup
+    - name: Update & Install Desktop + XRDP
+      run: |
+        sudo apt update
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies xrdp dbus-x11
+        sudo systemctl enable xrdp
+        echo "startxfce4" > ~/.xsession
+        sudo adduser runner ssl-cert || true
 
-      - name: Start VNC Server
-        run: |
-          vncserver :1 -geometry 1280x720 -depth 24
+    - name: Set Password
+      run: |
+        echo "runner:12345678" | sudo chpasswd
+        sudo usermod -aG sudo runner
 
-      - name: Start Stable Pinggy TCP Tunnel
-        run: |
-          echo "=========================================="
-          echo "RDP IS READY! COPY THE TCP LINK BELOW:"
-          echo "=========================================="
-          while true; do
-            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -p 443 -R 0:localhost:5901 tcp@a.pinggy.io || echo "Reconnecting tunnel..."
-            sleep 3
-          done
-          
+    - name: Configure XRDP
+      run: |
+        sudo sed -i 's/^exec.*/exec startxfce4/' /etc/xrdp/xrdp.ini || true
+        sudo systemctl restart xrdp
+
+    - name: Start Pinggy & Auto-Update Website URL
+      run: |
+        echo "Starting Pinggy Tunnel..."
+        git config --global user.name "RDP Bot"
+        git config --global user.email "bot@github.com"
+
+        # Run ssh and capture output to extract the port/link automatically
+        ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -p 443 -R 0:localhost:3389 tcp@a.pinggy.io 2>&1 | while read -r line; do
+          echo "$line"
+          if echo "$line" | grep -q "tcp://"; then
+            URL=$(echo "$line" | grep -o 'tcp://[^[:space:]]*')
+            echo "$URL" > rdp-url.txt
+            echo "Generated URL: $URL"
+            
+            git add rdp-url.txt
+            git commit -m "Auto update RDP URL [skip ci]" || true
+            git push || true
+          fi
+        done
+        
