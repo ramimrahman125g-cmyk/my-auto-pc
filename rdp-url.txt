@@ -1,1 +1,1 @@
-tcp://vuxxz-172-171-254-148.run.pinggy-free.link:39075
+tcp://ajiju-172-178-118-198.run.pinggy-free.link:35705
