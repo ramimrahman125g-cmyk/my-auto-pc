@@ -22,10 +22,13 @@ jobs:
           chmod +x ~/.vnc/xstartup
           vncserver :1 -geometry 1280x720 -depth 24
 
-      - name: Start Pinggy TCP Tunnel
+      - name: Start Pinggy TCP Tunnel with Retry
         run: |
           echo "=========================================="
           echo "GENERATING TCP TUNNEL FOR RVNC VIEWER..."
           echo "=========================================="
-          ssh -o StrictHostKeyChecking=no -p 443 -R 0:localhost:5901 tcp@a.pinggy.io
+          while true; do
+            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -p 443 -R 0:localhost:5901 tcp@a.pinggy.io || echo "Tunnel disconnected, reconnecting..."
+            sleep 5
+          done
           
